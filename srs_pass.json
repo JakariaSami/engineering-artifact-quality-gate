@@ -1,0 +1,7 @@
+{
+  "author": "max.mustermann",
+  "artifact_name": "SRS_AuthModule_v1.2_final.pdf",
+  "artifact_type": "Software Requirements Specification",
+  "version": "1.2",
+  "description": "Requirements specification for the authentication module including login, logout, and session management features."
+}

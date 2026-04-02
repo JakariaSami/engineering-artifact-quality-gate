@@ -1,0 +1,351 @@
+{
+  "name": "Engineering Artifact Quality Gate",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "artifact-check",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -384,
+        176
+      ],
+      "id": "ef0d1774-fcf3-4073-a864-3d0e0c41f4c9",
+      "name": "Webhook",
+      "webhookId": "3621719d-187d-472f-9e1d-57fd34e8b2d2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_OPENAI_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"max_tokens\": 300,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a quality engineer reviewing engineering artifacts for release readiness.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this validation result and give a 2-3 sentence release readiness summary with a clear recommendation.\\n\\nArtifact: {{ $json.artifact_name }}\\nAuthor: {{ $json.author }}\\nNaming Check: {{ $json.check_naming }}\\nFields Check: {{ $json.check_fields }}\\nCompleteness Check: {{ $json.check_completeness }}\\nOverall Status: {{ $json.overall_status }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        560,
+        176
+      ],
+      "id": "16524b8e-ab46-40b9-8636-40451e351b95",
+      "name": "AI Quality Analysis"
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.first().json;\nconst summary = aiResponse.choices[0].message.content;\nconst prev = $('Merge Results').first().json;\n\nreturn {\n  ...prev,\n  ai_summary: summary\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        176
+      ],
+      "id": "5e10ee7d-1958-4384-b33e-5a79de8848e8",
+      "name": "Extract AI Summary"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=*Quality Gate Result*\n*Artifact:* {{ $json.artifact_name }}\n*Author:* {{ $json.author }}\n*Status:* {{ $json.overall_status }}\n*AI Summary:* {{ $json.ai_summary }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1008,
+        176
+      ],
+      "id": "93b2ec5c-34a4-41ac-a7a2-4c1a5299071d",
+      "name": "Slack Notification"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7cfa61a2-51bb-4d12-a879-a8b654ac351b",
+                    "leftValue": "={{ $json.body.artifact_type }}",
+                    "rightValue": "Software Requirements Specification",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SRS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a55720e6-566f-4c0d-b8e3-4496c6de159d",
+                    "leftValue": "={{ $json.body.artifact_type }}",
+                    "rightValue": "YAML Config",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "YAML"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5d4efad0-e7f9-4437-85f7-e1164676b099",
+                    "leftValue": "={{ $json.body.artifact_type }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -176,
+        160
+      ],
+      "id": "5ce85938-11ed-48f7-996a-afe4e2a3a9ee",
+      "name": "Route by Artifact Type"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.body;\n\nconst namingRegex = /^[A-Z]+_[A-Za-z]+_v\\d+\\.\\d+.*\\.pdf$/;\nconst namingOk = namingRegex.test(data.artifact_name);\n\nconst fieldsOk = [\"author\", \"artifact_name\", \"artifact_type\", \"version\"]\n  .every(f => data[f] && data[f] !== \"\");\n\nconst descriptionOk = data.description && data.description.length > 100;\n\nconst versionOk = parseFloat(data.version) >= 1.0;\n\nconst allPassed = namingOk && fieldsOk && descriptionOk && versionOk;\n\nreturn {\n  ...data,\n  artifact_category: \"SRS\",\n  check_naming: namingOk ? \"PASS\" : \"FAIL - invalid SRS naming format\",\n  check_fields: fieldsOk ? \"PASS\" : \"FAIL - missing required fields\",\n  check_completeness: descriptionOk ? \"PASS\" : \"FAIL - description must be >100 chars for SRS\",\n  check_version: versionOk ? \"PASS\" : \"FAIL - SRS version must be >= 1.0\",\n  overall_status: allPassed ? \"READY\" : \"BLOCKED\",\n  timestamp: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        0
+      ],
+      "id": "c7da73b7-1fdc-401e-93de-019d133e4983",
+      "name": "Validate SRS"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.body;\n\nconst namingRegex = /^[a-z_]+\\.(yaml|yml)$/;\nconst namingOk = namingRegex.test(data.artifact_name);\n\nconst fieldsOk = [\"author\", \"artifact_name\", \"artifact_type\", \"version\"]\n  .every(f => data[f] && data[f] !== \"\");\n\nconst descriptionOk = data.description && data.description.length > 20;\n\nconst allPassed = namingOk && fieldsOk && descriptionOk;\n\nreturn {\n  ...data,\n  artifact_category: \"YAML\",\n  check_naming: namingOk ? \"PASS\" : \"FAIL - YAML files must be lowercase with .yaml/.yml extension\",\n  check_fields: fieldsOk ? \"PASS\" : \"FAIL - missing required fields\",\n  check_completeness: descriptionOk ? \"PASS\" : \"FAIL - description too short\",\n  check_version: \"N/A\",\n  overall_status: allPassed ? \"READY\" : \"BLOCKED\",\n  timestamp: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        176
+      ],
+      "id": "8f936917-a47e-4421-b489-b03237763a37",
+      "name": "Validate YAML Config"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.body;\n\nconst namingRegex = /^[A-Za-z0-9_]+\\.[a-z]+$/;\nconst namingOk = namingRegex.test(data.artifact_name);\n\nconst fieldsOk = [\"author\", \"artifact_name\", \"artifact_type\"]\n  .every(f => data[f] && data[f] !== \"\");\n\nconst descriptionOk = data.description && data.description.length > 20;\n\nconst allPassed = namingOk && fieldsOk && descriptionOk;\n\nreturn {\n  ...data,\n  artifact_category: \"Other\",\n  check_naming: namingOk ? \"PASS\" : \"FAIL - invalid file name format\",\n  check_fields: fieldsOk ? \"PASS\" : \"FAIL - missing required fields\",\n  check_completeness: descriptionOk ? \"PASS\" : \"FAIL - description too short\",\n  check_version: \"N/A\",\n  overall_status: allPassed ? \"READY\" : \"BLOCKED\",\n  timestamp: new Date().toISOString()\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        368
+      ],
+      "id": "cfc660bd-524b-4ceb-bb50-c52de48a7dcf",
+      "name": "Validate Default"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        320,
+        160
+      ],
+      "id": "1fce508d-6944-4f36-aafa-ee754f0cad92",
+      "name": "Merge Results"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route by Artifact Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Quality Analysis": {
+      "main": [
+        [
+          {
+            "node": "Extract AI Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract AI Summary": {
+      "main": [
+        [
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Artifact Type": {
+      "main": [
+        [
+          {
+            "node": "Validate SRS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate YAML Config",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Default",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Default": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Validate SRS": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate YAML Config": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "AI Quality Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9b1cbcba-477c-4b3a-a123-08a5bf990da2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a3a8bd1fa3cd1f692b7a17e768eb0e751ee4ec14de30c7e62ca2e3c79cd59aad"
+  },
+  "id": "XDs5snponMH1jX1b",
+  "tags": []
+}

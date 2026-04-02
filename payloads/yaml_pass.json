@@ -1,0 +1,7 @@
+{
+  "author": "max.mustermann",
+  "artifact_name": "auth_config.yaml",
+  "artifact_type": "YAML Config",
+  "version": "1.0",
+  "description": "YAML configuration file for auth module."
+}

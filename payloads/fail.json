@@ -1,0 +1,7 @@
+{
+  "author": "max.mustermann",
+  "artifact_name": "random_file.txt",
+  "artifact_type": "Software Requirements Specification",
+  "version": "0.5",
+  "description": "Test."
+}
